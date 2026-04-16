@@ -99,3 +99,12 @@ func resetRegistry() {
 func ResetRegistryForTest() {
 	resetRegistry()
 }
+
+// UnregisterForTest removes a single named driver from the registry.
+// Use this instead of ResetRegistryForTest when other drivers (e.g.
+// those registered by init() in a real driver package) must remain.
+func UnregisterForTest(name string) {
+	regMu.Lock()
+	defer regMu.Unlock()
+	delete(registry, name)
+}

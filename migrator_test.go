@@ -14,7 +14,7 @@ func newTestMigrator(t *testing.T, files fstest.MapFS) (*Migrator, *testhelpers.
 	t.Helper()
 	drv := &testhelpers.FakeDriver{}
 	driver.Register(drv)
-	t.Cleanup(func() { driver.ResetRegistryForTest() })
+	t.Cleanup(func() { driver.UnregisterForTest("fake") })
 
 	sources, err := loadFromFS(files)
 	if err != nil {
