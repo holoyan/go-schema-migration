@@ -87,14 +87,9 @@ go 1.23
 
 (Not `1.23.0`; use the minor-version form so patch upgrades are automatic.)
 
-- [ ] **Step 3: Add core dependencies**
+- [ ] **Step 3: (No dependencies at this stage)**
 
-```bash
-go get github.com/golang-migrate/migrate/v4@latest
-go get github.com/stretchr/testify@latest
-```
-
-Expected: `go.mod` now lists `github.com/golang-migrate/migrate/v4` and `github.com/stretchr/testify`.
+Per the spec, we do NOT depend on `github.com/golang-migrate/migrate/v4` — its `source.Driver` interface enumerates by `uint version`, incompatible with our timestamp-based discovery. We'll load files directly via `io/fs`. Test deps like `stretchr/testify` are added in later tasks when the first tests need them.
 
 - [ ] **Step 4: Verify the module compiles empty**
 
