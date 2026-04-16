@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/artak/go-schema-migrate/driver/sqlite" // register
 	"github.com/artak/go-schema-migrate/driver"
+	"github.com/artak/go-schema-migrate/internal/testhelpers"
 	_ "modernc.org/sqlite"
 )
 
@@ -110,4 +111,10 @@ func TestSQLiteDriver_LastBatchMigrations(t *testing.T) {
 	if rows[0].Name != "c" || rows[1].Name != "b" || rows[2].Name != "a" {
 		t.Fatalf("wrong order newest-first: %+v", rows)
 	}
+}
+
+func TestSQLiteDriver_Contract(t *testing.T) {
+	d, _ := driver.Get("sqlite")
+	db := openSQLite(t)
+	testhelpers.RunContract(t, d, db)
 }
