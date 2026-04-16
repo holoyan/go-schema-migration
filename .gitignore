@@ -1,0 +1,22 @@
+# Binaries
+/migrate
+/cmd/migrate/migrate
+
+# Test artifacts
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Local env
+.env
+.env.local
+migrate.local.yaml
