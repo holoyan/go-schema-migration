@@ -76,12 +76,14 @@ func resolveConfig(args []string) (resolvedConfig, error) {
 }
 
 // driverFromDSN returns the driver name for a DSN scheme.
-// postgres:// → "postgres", sqlite:// → "sqlite".
-// (MySQL support deferred.) Returns "" for unrecognized schemes.
+// postgres:// → "postgres", mysql:// → "mysql", sqlite:// → "sqlite".
+// Returns "" for unrecognized schemes.
 func driverFromDSN(dsn string) string {
 	switch {
 	case strings.HasPrefix(dsn, "postgres://"), strings.HasPrefix(dsn, "postgresql://"):
 		return "postgres"
+	case strings.HasPrefix(dsn, "mysql://"):
+		return "mysql"
 	case strings.HasPrefix(dsn, "sqlite://"), strings.HasPrefix(dsn, "sqlite3://"):
 		return "sqlite"
 	}

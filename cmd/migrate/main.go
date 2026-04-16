@@ -7,10 +7,12 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/artak/go-schema-migrate/driver/mysql"
 	_ "github.com/artak/go-schema-migrate/driver/postgres"
 	_ "github.com/artak/go-schema-migrate/driver/sqlite"
-	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx" sql driver
-	_ "modernc.org/sqlite"             // registers "sqlite" sql driver
+	_ "github.com/go-sql-driver/mysql"  // registers "mysql" sql driver
+	_ "github.com/jackc/pgx/v5/stdlib"  // registers "pgx" sql driver
+	_ "modernc.org/sqlite"              // registers "sqlite" sql driver
 )
 
 const usage = `migrate — schema migration tool with full history tracking

@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -153,6 +154,11 @@ func openMigrator(cfg resolvedConfig) (*migrate.Migrator, *sql.DB, error) {
 //
 //   postgres: sql driver name is "pgx"; pgx accepts postgres:// URLs as-is.
 //   sqlite:   sql driver name is "sqlite"; modernc wants a file path, not a URL.
+//   mysql:    sql driver name is "mysql"; go-sql-driver/mysql wants
+//             user:pass@tcp(host:port)/db?params, NOT mysql://user:pass@host/db.
+//             Accepts either a mysql:// URL (converted) or a native DSN (passed through).
+//             parseTime=true is appended if not already present so TIMESTAMP columns
+//             scan into time.Time rather than []byte.
 func toSQLOpen(ourDriver, userDSN string) (string, string, error) {
 	switch ourDriver {
 	case "postgres":
@@ -160,8 +166,51 @@ func toSQLOpen(ourDriver, userDSN string) (string, string, error) {
 	case "sqlite":
 		filePath := strings.TrimPrefix(strings.TrimPrefix(userDSN, "sqlite3://"), "sqlite://")
 		return "sqlite", filePath, nil
+	case "mysql":
+		dsn, err := mysqlDSNFromURL(userDSN)
+		if err != nil {
+			return "", "", err
+		}
+		return "mysql", ensureParseTime(dsn), nil
 	}
 	return "", "", fmt.Errorf("unknown driver %q", ourDriver)
+}
+
+// mysqlDSNFromURL converts a URL-form DSN (mysql://user:pass@host:port/db?params)
+// into go-sql-driver/mysql's native format (user:pass@tcp(host:port)/db?params).
+// Input without "mysql://" is returned unchanged so callers can pass native DSNs.
+func mysqlDSNFromURL(in string) (string, error) {
+	if !strings.HasPrefix(in, "mysql://") {
+		return in, nil
+	}
+	u, err := url.Parse(in)
+	if err != nil {
+		return "", fmt.Errorf("parse mysql DSN: %w", err)
+	}
+	user := u.User.Username()
+	pass, _ := u.User.Password()
+	host := u.Host
+	if host == "" {
+		host = "127.0.0.1:3306"
+	}
+	dbname := strings.TrimPrefix(u.Path, "/")
+	out := fmt.Sprintf("%s:%s@tcp(%s)/%s", user, pass, host, dbname)
+	if u.RawQuery != "" {
+		out += "?" + u.RawQuery
+	}
+	return out, nil
+}
+
+// ensureParseTime appends parseTime=true if no parseTime param is already present.
+// Without it, MySQL TIMESTAMP columns scan as []byte and fail the AppliedRow scan.
+func ensureParseTime(dsn string) string {
+	if strings.Contains(dsn, "parseTime=") {
+		return dsn
+	}
+	if strings.Contains(dsn, "?") {
+		return dsn + "&parseTime=true"
+	}
+	return dsn + "?parseTime=true"
 }
 
 func cmdStatus(args []string, stdout, stderr io.Writer) int {
