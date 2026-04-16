@@ -58,7 +58,7 @@ func main() {
 
 // Stub implementations; each gets filled in a later task.
 func runUp(args []string) int      { return cmdUp(args, os.Stdout, os.Stderr) }
-func runDown(args []string) int    { return notImplemented("down") }
+func runDown(args []string) int    { return cmdDown(args, os.Stdout, os.Stderr, realStdin{}) }
 func runStatus(args []string) int  { return notImplemented("status") }
 func runCreate(args []string) int  { return notImplemented("create") }
 func runVersion(args []string) int { return notImplemented("version") }

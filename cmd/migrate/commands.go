@@ -6,9 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	migrate "github.com/artak/go-schema-migrate"
+	"golang.org/x/term"
 )
 
 // cmdUp implements `migrate up`. Writes human output to stdout and
@@ -153,4 +155,100 @@ func toSQLOpen(ourDriver, userDSN string) (string, string, error) {
 		return "sqlite", filePath, nil
 	}
 	return "", "", fmt.Errorf("unknown driver %q", ourDriver)
+}
+
+// terminalDetector lets tests inject a fake stdin.
+type terminalDetector interface {
+	IsTerminal() bool
+	Read([]byte) (int, error)
+}
+
+// realStdin adapts os.Stdin for use as terminalDetector in production.
+type realStdin struct{}
+
+func (realStdin) IsTerminal() bool           { return term.IsTerminal(int(os.Stdin.Fd())) }
+func (realStdin) Read(p []byte) (int, error) { return os.Stdin.Read(p) }
+
+func cmdDown(args []string, stdout, stderr io.Writer, in terminalDetector) int {
+	fs := flag.NewFlagSet("down", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	step := fs.Int("step", 1, "number of batches to roll back")
+	dryRun := fs.Bool("dry-run", false, "show what would roll back")
+	force := fs.Bool("force", false, "skip interactive confirmation")
+	forceShort := fs.Bool("f", false, "alias for --force")
+	source := fs.String("source", "", "source URL")
+	database := fs.String("database", "", "DSN")
+	historyTable := fs.String("history-table", "", "history table name")
+	configPath := fs.String("config", "", "config file path")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	*force = *force || *forceShort
+
+	shared := []string{}
+	if *source != "" {
+		shared = append(shared, "--source", *source)
+	}
+	if *database != "" {
+		shared = append(shared, "--database", *database)
+	}
+	if *historyTable != "" {
+		shared = append(shared, "--history-table", *historyTable)
+	}
+	if *configPath != "" {
+		shared = append(shared, "--config", *configPath)
+	}
+	cfg, err := resolveConfig(shared)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	m, db, err := openMigrator(cfg)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	plan, err := m.PlanDown(ctx, *step)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	if len(plan) == 0 {
+		fmt.Fprintln(stdout, "Nothing to roll back.")
+		return 0
+	}
+	if *dryRun {
+		return printPlan(stdout, plan, "Rolling back %d migration(s) (dry-run, nothing changed):", false)
+	}
+	if !*force {
+		if !in.IsTerminal() {
+			fmt.Fprintln(stderr, "down: refusing to run interactively from non-TTY — pass --force to confirm")
+			return 3
+		}
+		fmt.Fprintf(stdout, "About to roll back %d migration(s):\n", len(plan))
+		for _, p := range plan {
+			fmt.Fprintf(stdout, "  - %s\n", p.Name)
+		}
+		fmt.Fprint(stdout, "Continue? [y/N] ")
+		buf := make([]byte, 16)
+		n, _ := in.Read(buf)
+		resp := strings.TrimSpace(strings.ToLower(string(buf[:n])))
+		if resp != "y" && resp != "yes" {
+			fmt.Fprintln(stdout, "Aborted.")
+			return 3
+		}
+	}
+	rolled, err := m.Down(ctx, *step)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 2
+	}
+	fmt.Fprintf(stdout, "Rolled back %d migration(s):\n", len(rolled))
+	for _, r := range rolled {
+		fmt.Fprintf(stdout, "  ✓ %s (was batch %d)\n", r.Name, r.Batch)
+	}
+	return 0
 }

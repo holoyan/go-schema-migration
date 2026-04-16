@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,3 +66,68 @@ func TestCmdUp_DryRun_DoesNotTouchDB(t *testing.T) {
 		t.Fatalf("real up should still report the migration, got %q", out2.String())
 	}
 }
+
+func TestCmdDown_DryRun(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	writeMigrations(t, mig, map[string]string{
+		"20260101000000_a.up.sql":   "CREATE TABLE a(id INTEGER);",
+		"20260101000000_a.down.sql": "DROP TABLE a;",
+	})
+	var u1, u2 bytes.Buffer
+	if code := cmdUp([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &u1, &u2); code != 0 {
+		t.Fatalf("setup up failed: %s", u2.String())
+	}
+	var out, errB bytes.Buffer
+	code := cmdDown([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath, "--dry-run"}, &out, &errB, nonInteractiveStdin{})
+	if code != 0 {
+		t.Fatalf("down --dry-run exited %d: %s", code, errB.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("dry-run")) {
+		t.Fatalf("dry-run label missing: %q", out.String())
+	}
+}
+
+func TestCmdDown_NonTTYWithoutForceRefuses(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	writeMigrations(t, mig, map[string]string{
+		"20260101000000_a.up.sql":   "CREATE TABLE a(id INTEGER);",
+		"20260101000000_a.down.sql": "DROP TABLE a;",
+	})
+	_ = cmdUp([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	var out, errB bytes.Buffer
+	code := cmdDown([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &out, &errB, nonInteractiveStdin{})
+	if code != 3 {
+		t.Fatalf("want exit 3 for non-TTY without --force, got %d", code)
+	}
+}
+
+func TestCmdDown_ForceSkipsPrompt(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	writeMigrations(t, mig, map[string]string{
+		"20260101000000_a.up.sql":   "CREATE TABLE a(id INTEGER);",
+		"20260101000000_a.down.sql": "DROP TABLE a;",
+	})
+	_ = cmdUp([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	var out, errB bytes.Buffer
+	code := cmdDown([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath, "--force"}, &out, &errB, nonInteractiveStdin{})
+	if code != 0 {
+		t.Fatalf("--force should succeed, got exit %d: %s", code, errB.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("20260101000000_a")) {
+		t.Fatalf("rollback output missing migration: %q", out.String())
+	}
+}
+
+// nonInteractiveStdin is a stdin substitute that signals "not a TTY".
+type nonInteractiveStdin struct{}
+
+func (nonInteractiveStdin) IsTerminal() bool         { return false }
+func (nonInteractiveStdin) Read([]byte) (int, error) { return 0, io.EOF }
