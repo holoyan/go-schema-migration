@@ -36,7 +36,8 @@ type sourceMigration struct {
 	Name    string // e.g. "20260416143052_add_users"
 	UpPath  string // absolute path of the .up.sql file (or fs-relative in tests)
 	UpSQL   string
-	DownSQL string // empty if no .down.sql exists
+	DownSQL string // empty if no .down.sql exists or file is empty
+	HasDown bool   // true when a .down.sql file was present (even if empty)
 }
 
 // loadFromFS reads every top-level file from fsys, parses migration
@@ -83,6 +84,7 @@ func loadFromFS(fsys fs.FS) ([]sourceMigration, error) {
 	for name, u := range ups {
 		m := sourceMigration{Name: name, UpPath: u.path, UpSQL: string(u.data)}
 		if d, ok := downs[name]; ok {
+			m.HasDown = true
 			m.DownSQL = string(d.data)
 		}
 		out = append(out, m)
