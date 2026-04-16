@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func writeMigrations(t *testing.T, dir string, files map[string]string) {
@@ -183,5 +184,39 @@ func TestCmdStatus_PendingOnly(t *testing.T) {
 	}
 	if !bytes.Contains(out.Bytes(), []byte("20260102000000_b")) {
 		t.Fatalf("--pending must include pending migration: %q", out.String())
+	}
+}
+
+func TestCmdCreate_WritesTimestampedPair(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	if err := os.MkdirAll(mig, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errB bytes.Buffer
+	code := cmdCreate([]string{"add_users"}, mig, &out, &errB, func() time.Time {
+		return time.Date(2026, 4, 16, 15, 23, 10, 0, time.UTC)
+	})
+	if code != 0 {
+		t.Fatalf("create exited %d: %s", code, errB.String())
+	}
+	for _, suffix := range []string{".up.sql", ".down.sql"} {
+		p := filepath.Join(mig, "20260416152310_add_users"+suffix)
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("missing file: %s", p)
+		}
+	}
+}
+
+func TestCmdCreate_InvalidName(t *testing.T) {
+	dir := t.TempDir()
+	var out, errB bytes.Buffer
+	code := cmdCreate([]string{"Bad Name!"}, dir, &out, &errB, time.Now)
+	if code == 0 {
+		t.Fatal("invalid name should fail")
+	}
+	if !bytes.Contains(errB.Bytes(), []byte("invalid")) {
+		t.Fatalf("error should mention invalid: %q", errB.String())
 	}
 }

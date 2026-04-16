@@ -4,6 +4,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	_ "github.com/artak/go-schema-migrate/driver/postgres"
 	_ "github.com/artak/go-schema-migrate/driver/sqlite"
@@ -60,8 +62,23 @@ func main() {
 func runUp(args []string) int      { return cmdUp(args, os.Stdout, os.Stderr) }
 func runDown(args []string) int    { return cmdDown(args, os.Stdout, os.Stderr, realStdin{}) }
 func runStatus(args []string) int  { return cmdStatus(args, os.Stdout, os.Stderr) }
-func runCreate(args []string) int  { return notImplemented("create") }
+func runCreate(args []string) int  { return runCreateImpl(args) }
 func runVersion(args []string) int { return notImplemented("version") }
+
+func runCreateImpl(args []string) int {
+	// Source directory defaults to ./migrations; --source overrides.
+	dir := "./migrations"
+	var rest []string
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--source" && i+1 < len(args) {
+			dir = strings.TrimPrefix(args[i+1], "file://")
+			i++
+			continue
+		}
+		rest = append(rest, args[i])
+	}
+	return cmdCreate(rest, dir, os.Stdout, os.Stderr, time.Now)
+}
 
 func notImplemented(cmd string) int {
 	fmt.Fprintf(os.Stderr, "%s: not implemented in this build\n", cmd)

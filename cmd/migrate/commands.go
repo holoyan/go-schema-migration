@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	migrate "github.com/artak/go-schema-migrate"
 	"golang.org/x/term"
@@ -328,5 +331,35 @@ func cmdDown(args []string, stdout, stderr io.Writer, in terminalDetector) int {
 	for _, r := range rolled {
 		fmt.Fprintf(stdout, "  ✓ %s (was batch %d)\n", r.Name, r.Batch)
 	}
+	return 0
+}
+
+var createNameRE = regexp.MustCompile(`^[a-z0-9_]+$`)
+
+// cmdCreate scaffolds a new up/down migration pair. Returns exit code.
+// The `now` func is injected for tests.
+func cmdCreate(args []string, migrationsDir string, stdout, stderr io.Writer, now func() time.Time) int {
+	if len(args) < 1 {
+		fmt.Fprintln(stderr, "create: migration name required")
+		return 1
+	}
+	name := args[0]
+	if !createNameRE.MatchString(name) {
+		fmt.Fprintf(stderr, "create: invalid name %q — must match %s\n", name, createNameRE)
+		return 1
+	}
+	ts := now().UTC().Format("20060102150405")
+	base := ts + "_" + name
+	upPath := filepath.Join(migrationsDir, base+".up.sql")
+	downPath := filepath.Join(migrationsDir, base+".down.sql")
+	if err := os.WriteFile(upPath, []byte("-- +up\n"), 0o644); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	if err := os.WriteFile(downPath, []byte("-- +down\n"), 0o644); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "Created:\n  %s\n  %s\n", upPath, downPath)
 	return 0
 }
