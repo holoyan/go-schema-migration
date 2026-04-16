@@ -2,14 +2,6 @@
 
 A Go migration library and CLI with **full history tracking**, so concurrent-developer migrations apply exactly once per environment regardless of merge order.
 
-## Why
-
-[`golang-migrate`](https://github.com/golang-migrate/migrate) stores only the current version number in `schema_migrations`. When two developers create migrations in parallel and merge in a different order than wall-clock creation order, one developer's migration can be silently skipped on environments that already advanced past its version.
-
-`go-schema-migrate` records **every** applied migration filename in a history table (like Laravel) and diffs against files on disk — un-applied files are detected regardless of merge order. Rollback works in **batches**: every `up` run gets a new batch number, and `down` undoes the most recent batch(es).
-
-File format is compatible with `golang-migrate` (`NAME.up.sql` / `NAME.down.sql` pairs).
-
 ## Install
 
 ```bash
