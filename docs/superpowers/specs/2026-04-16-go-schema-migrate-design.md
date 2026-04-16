@@ -19,13 +19,14 @@ Build a Go migration library and CLI that keeps `golang-migrate`'s file-source e
 - Partial `Up` (goto / steps) — `Up` always applies all pending.
 - `force <version>` / `drop` commands.
 - SQL Server, CockroachDB, and other databases beyond Postgres/MySQL/SQLite.
+- Non-file source schemes (`embed://`, `github://`, `s3://`, …) — v1 is `file://` only.
 
 ## Architectural decisions
 
 | Decision | Choice | Rationale |
 |---|---|---|
 | Shape | Library + CLI | Users embed in app startup or run via CI. |
-| Relation to golang-migrate | Reuse its **source drivers only** (`file://`, `embed://`, `github://`, …); write our own DB layer | Its DB drivers assume single-version tracking — incompatible with history-table approach. |
+| Relation to golang-migrate | File-format compatibility (same `<name>.up.sql` / `.down.sql` layout); no code dependency | Its `source.Driver` interface enumerates by `uint` version (sequential), which doesn't fit timestamp-based discovery. Its DB drivers also assume single-version tracking. We load files directly via `io/fs` — simpler and fits our model. |
 | Filename convention | Timestamp prefix, e.g. `20260416143052_add_users.up.sql`. Enforced via regex `^\d{14}_[a-z0-9_]+\.(up|down)\.sql$` at source-load time | Natural lexical sort; second-level resolution prevents collisions between devs. Non-conforming names cause `New()` to return an error. |
 | Rollback model | Laravel-style batches | Every `Up` creates a batch; `Down` undoes last `N` batches. Matches "undo my last deploy". |
 | Databases (v1) | PostgreSQL, MySQL/MariaDB, SQLite | Covers the Go backend ecosystem. |
@@ -71,8 +72,9 @@ type Migrator struct { /* unexported */ }
 
 // Config configures a Migrator.
 type Config struct {
-    // Source is a golang-migrate source URL: "file://./migrations",
-    // "embed://", "github://owner/repo#path", etc.
+    // Source is a URL to a directory of migration files. In v1 only
+    // "file://<path>" is supported. The file-format is identical to
+    // golang-migrate's (NAME.up.sql / NAME.down.sql pairs).
     Source string
 
     // DriverName identifies a registered DB driver: "postgres",
