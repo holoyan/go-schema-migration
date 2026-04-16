@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -131,3 +132,56 @@ type nonInteractiveStdin struct{}
 
 func (nonInteractiveStdin) IsTerminal() bool         { return false }
 func (nonInteractiveStdin) Read([]byte) (int, error) { return 0, io.EOF }
+
+func TestCmdStatus_JSON(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	writeMigrations(t, mig, map[string]string{
+		"20260101000000_a.up.sql":   "CREATE TABLE a(id INTEGER);",
+		"20260101000000_a.down.sql": "DROP TABLE a;",
+		"20260102000000_b.up.sql":   "CREATE TABLE b(id INTEGER);",
+		"20260102000000_b.down.sql": "DROP TABLE b;",
+	})
+	_ = cmdUp([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	var out, errB bytes.Buffer
+	code := cmdStatus([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath, "--json"}, &out, &errB)
+	if code != 0 {
+		t.Fatalf("status --json exited %d: %s", code, errB.String())
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal(out.Bytes(), &rows); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out.String())
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 rows, got %d", len(rows))
+	}
+}
+
+func TestCmdStatus_PendingOnly(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	writeMigrations(t, mig, map[string]string{
+		"20260101000000_a.up.sql":   "CREATE TABLE a(id INTEGER);",
+		"20260101000000_a.down.sql": "DROP TABLE a;",
+	})
+	_ = cmdUp([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &bytes.Buffer{}, &bytes.Buffer{})
+	writeMigrations(t, mig, map[string]string{
+		"20260102000000_b.up.sql":   "CREATE TABLE b(id INTEGER);",
+		"20260102000000_b.down.sql": "DROP TABLE b;",
+	})
+
+	var out, errB bytes.Buffer
+	code := cmdStatus([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath, "--pending"}, &out, &errB)
+	if code != 0 {
+		t.Fatalf("status exited %d: %s", code, errB.String())
+	}
+	if bytes.Contains(out.Bytes(), []byte("20260101000000_a")) {
+		t.Fatalf("--pending must not include applied migrations: %q", out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("20260102000000_b")) {
+		t.Fatalf("--pending must include pending migration: %q", out.String())
+	}
+}

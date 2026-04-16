@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -158,6 +159,80 @@ func toSQLOpen(ourDriver, userDSN string) (string, string, error) {
 		return "sqlite", filePath, nil
 	}
 	return "", "", fmt.Errorf("unknown driver %q", ourDriver)
+}
+
+func cmdStatus(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("status", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	pendingOnly := fs.Bool("pending", false, "show only pending migrations")
+	jsonOut := fs.Bool("json", false, "machine-readable JSON output")
+	source := fs.String("source", "", "source URL")
+	database := fs.String("database", "", "DSN")
+	historyTable := fs.String("history-table", "", "history table name")
+	configPath := fs.String("config", "", "config file path")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	shared := []string{}
+	if *source != "" {
+		shared = append(shared, "--source", *source)
+	}
+	if *database != "" {
+		shared = append(shared, "--database", *database)
+	}
+	if *historyTable != "" {
+		shared = append(shared, "--history-table", *historyTable)
+	}
+	if *configPath != "" {
+		shared = append(shared, "--config", *configPath)
+	}
+	cfg, err := resolveConfig(shared)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	m, db, err := openMigrator(cfg)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer db.Close()
+
+	rows, err := m.Status(context.Background())
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	if *pendingOnly {
+		filtered := rows[:0]
+		for _, r := range rows {
+			if !r.Applied {
+				filtered = append(filtered, r)
+			}
+		}
+		rows = filtered
+	}
+	if *jsonOut {
+		enc := json.NewEncoder(stdout)
+		if err := enc.Encode(rows); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
+	}
+	fmt.Fprintf(stdout, "%-35s %-10s %-6s %s\n", "NAME", "STATE", "BATCH", "APPLIED_AT")
+	for _, r := range rows {
+		state := "pending"
+		batch := "-"
+		applied := "-"
+		if r.Applied {
+			state = "applied"
+			batch = fmt.Sprintf("%d", r.Batch)
+			applied = r.AppliedAt.Format("2006-01-02 15:04:05")
+		}
+		fmt.Fprintf(stdout, "%-35s %-10s %-6s %s\n", r.Name, state, batch, applied)
+	}
+	return 0
 }
 
 // terminalDetector lets tests inject a fake stdin.
