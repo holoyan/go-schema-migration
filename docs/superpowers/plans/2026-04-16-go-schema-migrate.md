@@ -2378,19 +2378,21 @@ git commit -m "test(drivercontract): add shared contract and wire SQLite through
 
 ---
 
-## Task 13: Postgres driver + integration tests
+## Task 13: Postgres driver + integration tests (local Postgres)
 
 **Files:**
 - Create: `driver/postgres/postgres.go`
 - Create: `driver/postgres/postgres_test.go`
 
-- [ ] **Step 1: Add Postgres + testcontainers deps**
+**Testing approach:** uses a locally running Postgres (not testcontainers). DSN comes from env var `MIGRATE_TEST_PG_DSN` with a default that works for most dev setups. Each test uses a uniquely-named table to avoid collisions with other data in the DB.
+
+- [ ] **Step 1: Add pgx dep only**
 
 ```bash
 go get github.com/jackc/pgx/v5/stdlib@latest
-go get github.com/testcontainers/testcontainers-go@latest
-go get github.com/testcontainers/testcontainers-go/modules/postgres@latest
 ```
+
+(No testcontainers — we use the host Postgres directly.)
 
 - [ ] **Step 2: Write failing integration test (behind build tag)**
 
@@ -2404,6 +2406,8 @@ package postgres_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -2411,42 +2415,74 @@ import (
 	_ "github.com/artak/go-schema-migrate/driver/postgres"
 	"github.com/artak/go-schema-migrate/internal/testhelpers"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func TestPostgresDriver_Contract(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
+const defaultPGDSN = "postgres://artak:secret@localhost:5432/go-schema-migrate?sslmode=disable"
 
-	pg, err := postgres.Run(ctx, "postgres:16",
-		postgres.WithDatabase("migrate"),
-		postgres.WithUsername("user"),
-		postgres.WithPassword("pass"),
-		postgres.WithWaitStrategy(wait.ForListeningPort("5432/tcp").WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("testcontainer: %v", err)
-	}
-	t.Cleanup(func() { _ = pg.Terminate(ctx) })
-
-	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
+func openPG(t *testing.T) *sql.DB {
+	t.Helper()
+	dsn := os.Getenv("MIGRATE_TEST_PG_DSN")
+	if dsn == "" {
+		dsn = defaultPGDSN
 	}
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("open: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		t.Skipf("Postgres not reachable at %s: %v", dsn, err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
 
+// uniqueTable returns a test-only table name. Using the test name and
+// a timestamp prevents collisions when tests run in parallel or back-to-back.
+func uniqueTable(t *testing.T) string {
+	return fmt.Sprintf("mig_test_%d_%s", time.Now().UnixNano(), safeName(t.Name()))
+}
+
+// safeName strips characters illegal in Postgres identifiers.
+func safeName(s string) string {
+	out := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '_':
+			out = append(out, c)
+		case c >= 'A' && c <= 'Z':
+			out = append(out, c+32) // lowercase
+		default:
+			out = append(out, '_')
+		}
+	}
+	return string(out)
+}
+
+func TestPostgresDriver_Contract(t *testing.T) {
 	d, err := driver.Get("postgres")
 	if err != nil {
 		t.Fatal(err)
 	}
+	db := openPG(t)
+	// The contract test uses `test_schema_migrations` plus `contract_t1`/`contract_t2`.
+	// Drop them up-front in case a previous failing run left debris.
+	ctx := context.Background()
+	for _, tbl := range []string{"test_schema_migrations", "contract_t1", "contract_t2", "c_a", "c_b", "c_c"} {
+		_, _ = db.ExecContext(ctx, "DROP TABLE IF EXISTS "+tbl)
+	}
+	t.Cleanup(func() {
+		for _, tbl := range []string{"test_schema_migrations", "contract_t1", "contract_t2", "c_a", "c_b", "c_c"} {
+			_, _ = db.ExecContext(ctx, "DROP TABLE IF EXISTS "+tbl)
+		}
+	})
 	testhelpers.RunContract(t, d, db)
 }
 ```
+
+The `t.Skipf` when Postgres is unreachable means anyone running `go test -tags=integration ./...` without Postgres configured gets a clean skip rather than a failure.
 
 - [ ] **Step 3: Run test — expect compile failure (or skip)**
 
