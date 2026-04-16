@@ -334,6 +334,14 @@ func cmdDown(args []string, stdout, stderr io.Writer, in terminalDetector) int {
 	return 0
 }
 
+// Version is populated at build time via -ldflags "-X main.Version=...".
+var Version = "dev"
+
+func cmdVersion(stdout io.Writer) int {
+	fmt.Fprintf(stdout, "migrate %s\n", Version)
+	return 0
+}
+
 var createNameRE = regexp.MustCompile(`^[a-z0-9_]+$`)
 
 // cmdCreate scaffolds a new up/down migration pair. Returns exit code.

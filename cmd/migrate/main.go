@@ -63,7 +63,7 @@ func runUp(args []string) int      { return cmdUp(args, os.Stdout, os.Stderr) }
 func runDown(args []string) int    { return cmdDown(args, os.Stdout, os.Stderr, realStdin{}) }
 func runStatus(args []string) int  { return cmdStatus(args, os.Stdout, os.Stderr) }
 func runCreate(args []string) int  { return runCreateImpl(args) }
-func runVersion(args []string) int { return notImplemented("version") }
+func runVersion(args []string) int { return cmdVersion(os.Stdout) }
 
 func runCreateImpl(args []string) int {
 	// Source directory defaults to ./migrations; --source overrides.
