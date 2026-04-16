@@ -63,7 +63,7 @@ func cmdUp(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		return printPlan(stdout, plan, "Batch %d (dry-run, nothing applied):", *verbose)
+		return printPlan(stdout, plan, "Batch %d (dry-run, nothing applied):", *verbose, plan[0].Batch)
 	}
 
 	applied, err := m.Up(ctx)
@@ -82,12 +82,15 @@ func cmdUp(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func printPlan(w io.Writer, plan []migrate.PlannedMigration, header string, verbose bool) int {
+// printPlan renders a list of PlannedMigration to w. header is a format string
+// receiving the variadic headerArgs (commonly the batch number for Up, or the
+// count of migrations for Down). Set verbose=true to dump each file's SQL body.
+func printPlan(w io.Writer, plan []migrate.PlannedMigration, header string, verbose bool, headerArgs ...any) int {
 	if len(plan) == 0 {
 		fmt.Fprintln(w, "Nothing to migrate.")
 		return 0
 	}
-	fmt.Fprintf(w, header+"\n", plan[0].Batch)
+	fmt.Fprintf(w, header+"\n", headerArgs...)
 	for _, p := range plan {
 		fmt.Fprintf(w, "  → %s    %s    (%d bytes)\n", p.Name, p.Path, len(p.SQL))
 		if verbose {
@@ -221,7 +224,7 @@ func cmdDown(args []string, stdout, stderr io.Writer, in terminalDetector) int {
 		return 0
 	}
 	if *dryRun {
-		return printPlan(stdout, plan, "Rolling back %d migration(s) (dry-run, nothing changed):", false)
+		return printPlan(stdout, plan, "Rolling back %d migration(s) (dry-run, nothing changed):", false, len(plan))
 	}
 	if !*force {
 		if !in.IsTerminal() {
