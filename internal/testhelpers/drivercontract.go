@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/artak/go-schema-migrate/driver"
+	"github.com/holoyan/go-schema-migration/driver"
 )
 
 // RunContract runs the standard DBDriver behavior suite against drv

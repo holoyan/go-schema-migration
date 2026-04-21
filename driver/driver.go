@@ -13,7 +13,7 @@ import (
 
 // ErrNotRegistered is returned by Get when the named driver has not
 // been registered. Callers typically blank-import a driver subpackage
-// (e.g. _ "github.com/artak/go-schema-migrate/driver/postgres").
+// (e.g. _ "github.com/holoyan/go-schema-migration/driver/postgres").
 var ErrNotRegistered = errors.New("driver: not registered")
 
 // AppliedRow represents one row from the history table.

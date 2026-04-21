@@ -3,7 +3,7 @@
 //
 // Register by blank-importing:
 //
-//	import _ "github.com/artak/go-schema-migrate/driver/postgres"
+//	import _ "github.com/holoyan/go-schema-migration/driver/postgres"
 package postgres
 
 import (
@@ -11,7 +11,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/artak/go-schema-migrate/driver"
+	"github.com/holoyan/go-schema-migration/driver"
 )
 
 func init() { driver.Register(&pgDriver{}) }

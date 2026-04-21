@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	migrate "github.com/artak/go-schema-migrate"
-	_ "github.com/artak/go-schema-migrate/driver/sqlite"
+	migrate "github.com/holoyan/go-schema-migration"
+	_ "github.com/holoyan/go-schema-migration/driver/sqlite"
 	_ "modernc.org/sqlite"
 )
 

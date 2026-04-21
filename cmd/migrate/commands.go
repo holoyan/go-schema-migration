@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	migrate "github.com/artak/go-schema-migrate"
+	migrate "github.com/holoyan/go-schema-migration"
 	"golang.org/x/term"
 )
 

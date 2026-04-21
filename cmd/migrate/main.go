@@ -1,4 +1,4 @@
-// Command migrate is the CLI wrapper over github.com/artak/go-schema-migrate.
+// Command migrate is the CLI wrapper over github.com/holoyan/go-schema-migration.
 package main
 
 import (
@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/artak/go-schema-migrate/driver/mysql"
-	_ "github.com/artak/go-schema-migrate/driver/postgres"
-	_ "github.com/artak/go-schema-migrate/driver/sqlite"
+	_ "github.com/holoyan/go-schema-migration/driver/mysql"
+	_ "github.com/holoyan/go-schema-migration/driver/postgres"
+	_ "github.com/holoyan/go-schema-migration/driver/sqlite"
 	_ "github.com/go-sql-driver/mysql"  // registers "mysql" sql driver
 	_ "github.com/jackc/pgx/v5/stdlib"  // registers "pgx" sql driver
 	_ "modernc.org/sqlite"              // registers "sqlite" sql driver

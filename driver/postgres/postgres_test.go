@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/artak/go-schema-migrate/driver"
-	_ "github.com/artak/go-schema-migrate/driver/postgres"
-	"github.com/artak/go-schema-migrate/internal/testhelpers"
+	"github.com/holoyan/go-schema-migration/driver"
+	_ "github.com/holoyan/go-schema-migration/driver/postgres"
+	"github.com/holoyan/go-schema-migration/internal/testhelpers"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 

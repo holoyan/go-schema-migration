@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/artak/go-schema-migrate/driver/sqlite" // register
-	"github.com/artak/go-schema-migrate/driver"
-	"github.com/artak/go-schema-migrate/internal/testhelpers"
+	_ "github.com/holoyan/go-schema-migration/driver/sqlite" // register
+	"github.com/holoyan/go-schema-migration/driver"
+	"github.com/holoyan/go-schema-migration/internal/testhelpers"
 	_ "modernc.org/sqlite"
 )
 

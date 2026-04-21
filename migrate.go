@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/artak/go-schema-migrate/driver"
+	"github.com/holoyan/go-schema-migration/driver"
 )
 
 // Config configures a Migrator.

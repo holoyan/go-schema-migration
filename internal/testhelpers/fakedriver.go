@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/artak/go-schema-migrate/driver"
+	"github.com/holoyan/go-schema-migration/driver"
 )
 
 // FakeDriver is an in-memory DBDriver used by migrator_test.go. It

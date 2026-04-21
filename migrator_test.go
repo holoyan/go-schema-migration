@@ -6,8 +6,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/artak/go-schema-migrate/driver"
-	"github.com/artak/go-schema-migrate/internal/testhelpers"
+	"github.com/holoyan/go-schema-migration/driver"
+	"github.com/holoyan/go-schema-migration/internal/testhelpers"
 )
 
 func newTestMigrator(t *testing.T, files fstest.MapFS) (*Migrator, *testhelpers.FakeDriver) {

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/artak/go-schema-migrate/driver"
-	_ "github.com/artak/go-schema-migrate/driver/mysql"
-	"github.com/artak/go-schema-migrate/internal/testhelpers"
+	"github.com/holoyan/go-schema-migration/driver"
+	_ "github.com/holoyan/go-schema-migration/driver/mysql"
+	"github.com/holoyan/go-schema-migration/internal/testhelpers"
 	_ "github.com/go-sql-driver/mysql"
 )
 

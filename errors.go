@@ -12,7 +12,7 @@ var (
 
 	// ErrDriverNotRegistered is returned by New when Config.DriverName
 	// is not a registered driver. Callers must blank-import the driver
-	// subpackage (e.g. _ "github.com/artak/go-schema-migrate/driver/postgres").
+	// subpackage (e.g. _ "github.com/holoyan/go-schema-migration/driver/postgres").
 	ErrDriverNotRegistered = errors.New("migrate: driver not registered")
 
 	// ErrInvalidMigrationName is returned by New when a file in the

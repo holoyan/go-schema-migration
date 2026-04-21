@@ -3,7 +3,7 @@
 //
 // Register by blank-importing the package:
 //
-//	import _ "github.com/artak/go-schema-migrate/driver/sqlite"
+//	import _ "github.com/holoyan/go-schema-migration/driver/sqlite"
 package sqlite
 
 import (
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/artak/go-schema-migrate/driver"
+	"github.com/holoyan/go-schema-migration/driver"
 	_ "modernc.org/sqlite"
 )
 

@@ -6,10 +6,10 @@ A Go migration library and CLI with **full history tracking**, so concurrent-dev
 
 ```bash
 # Library
-go get github.com/artak/go-schema-migrate
+go get github.com/holoyan/go-schema-migration
 
 # CLI
-go install github.com/artak/go-schema-migrate/cmd/migrate@latest
+go install github.com/holoyan/go-schema-migration/cmd/migrate@latest
 ```
 
 Go 1.23+ required (1.25+ recommended since the SQLite driver pulls `modernc.org/sqlite` which declares a 1.25 toolchain).
@@ -98,8 +98,8 @@ import (
 	"database/sql"
 	"log"
 
-	migrate "github.com/artak/go-schema-migrate"
-	_ "github.com/artak/go-schema-migrate/driver/postgres"
+	migrate "github.com/holoyan/go-schema-migration"
+	_ "github.com/holoyan/go-schema-migration/driver/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -159,9 +159,9 @@ func (m *Migrator) Close() error
 Register a driver by blank-importing it:
 
 ```go
-import _ "github.com/artak/go-schema-migrate/driver/postgres"
-import _ "github.com/artak/go-schema-migrate/driver/mysql"
-import _ "github.com/artak/go-schema-migrate/driver/sqlite"
+import _ "github.com/holoyan/go-schema-migration/driver/postgres"
+import _ "github.com/holoyan/go-schema-migration/driver/mysql"
+import _ "github.com/holoyan/go-schema-migration/driver/sqlite"
 ```
 
 The CLI already blank-imports all three.

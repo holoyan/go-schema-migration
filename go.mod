@@ -1,4 +1,4 @@
-module github.com/artak/go-schema-migrate
+module github.com/holoyan/go-schema-migration
 
 go 1.25.0
 

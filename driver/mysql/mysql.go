@@ -9,7 +9,7 @@
 //
 // Register by blank-importing:
 //
-//	import _ "github.com/artak/go-schema-migrate/driver/mysql"
+//	import _ "github.com/holoyan/go-schema-migration/driver/mysql"
 package mysql
 
 import (
@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/artak/go-schema-migrate/driver"
+	"github.com/holoyan/go-schema-migration/driver"
 	_ "github.com/go-sql-driver/mysql"
 )
 
