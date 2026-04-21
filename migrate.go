@@ -74,14 +74,8 @@ func (m *Migrator) Close() error { return nil }
 // tests across packages in this module; not part of the public API.
 func (m *Migrator) DBForTest() *sql.DB { return m.cfg.DB }
 
-// loadSource resolves a source URL into sourceMigration list using DefaultFilenameRE.
-// Only "file://" is supported today.
-func loadSource(url string) ([]sourceMigration, error) {
-	return loadSourceWithRegex(url, DefaultFilenameRE)
-}
-
 // loadSourceWithRegex resolves a source URL into sourceMigration list using a custom regex.
-// Only "file://" is supported today.
+// Only "file://" is supported today. Pass DefaultFilenameRE for standard filename handling.
 func loadSourceWithRegex(url string, re *regexp.Regexp) ([]sourceMigration, error) {
 	const filePrefix = "file://"
 	if strings.HasPrefix(url, filePrefix) {

@@ -112,14 +112,10 @@ func loadFromFSWithRegex(fsys fs.FS, re *regexp.Regexp) ([]sourceMigration, erro
 	return out, nil
 }
 
-// loadFromDir is the disk-path entry point used by New when the source
-// URL is "file://...". Callers pass the resolved absolute path. Rewrites
-// UpPath to an absolute path for better error messages.
-func loadFromDir(dir string) ([]sourceMigration, error) {
-	return loadFromDirWithRegex(dir, DefaultFilenameRE)
-}
-
-// loadFromDirWithRegex is like loadFromDir but uses a custom filename regex.
+// loadFromDirWithRegex is the disk-path entry point used by New when the source
+// URL is "file://...". Callers pass the resolved absolute path. Rewrites UpPath
+// to an absolute path for better error messages. Pass DefaultFilenameRE for
+// standard filename handling.
 func loadFromDirWithRegex(dir string, re *regexp.Regexp) ([]sourceMigration, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
