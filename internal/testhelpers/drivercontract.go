@@ -102,4 +102,26 @@ func RunContract(t *testing.T, drv driver.DBDriver, db *sql.DB) {
 			t.Fatalf("want [c b a] newest-first: %+v", rows)
 		}
 	})
+
+	t.Run("RecordAppliedInsertsWithoutExecutingSQL", func(t *testing.T) {
+		_, _ = db.Exec("DELETE FROM " + table)
+		if err := drv.RecordApplied(ctx, db, table, "backfill_m1", 7); err != nil {
+			t.Fatal(err)
+		}
+		names, err := drv.AppliedNames(ctx, db, table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(names) != 1 || names[0] != "backfill_m1" {
+			t.Fatalf("want [backfill_m1], got %v", names)
+		}
+		// Verify batch was stored correctly.
+		rows, err := drv.AllMigrations(ctx, db, table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) != 1 || rows[0].Batch != 7 {
+			t.Fatalf("want batch 7, got %+v", rows)
+		}
+	})
 }

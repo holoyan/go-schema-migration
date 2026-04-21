@@ -108,6 +108,14 @@ func (*sqliteDriver) AllMigrations(ctx context.Context, db *sql.DB, table string
 	return queryAppliedRows(ctx, db, q)
 }
 
+func (*sqliteDriver) RecordApplied(ctx context.Context, db *sql.DB, table, name string, batch int) error {
+	q := fmt.Sprintf(`INSERT INTO %s (name, batch) VALUES (?, ?)`, quoteIdent(table))
+	if _, err := db.ExecContext(ctx, q, name, batch); err != nil {
+		return fmt.Errorf("sqlite: record applied: %w", err)
+	}
+	return nil
+}
+
 // queryAppliedRows executes a query and scans results into []driver.AppliedRow.
 // The applied_at column is stored as TEXT in SQLite and parsed manually.
 func queryAppliedRows(ctx context.Context, db *sql.DB, query string, args ...any) ([]driver.AppliedRow, error) {

@@ -116,6 +116,12 @@ func indent(s, prefix string) string {
 // openMigrator builds a *migrate.Migrator from resolvedConfig,
 // returning the underlying *sql.DB so the caller can close it.
 func openMigrator(cfg resolvedConfig) (*migrate.Migrator, *sql.DB, error) {
+	return openMigratorWithRegex(cfg, nil)
+}
+
+// openMigratorWithRegex is like openMigrator but accepts an optional filename
+// regex override. Pass nil to use the default pattern.
+func openMigratorWithRegex(cfg resolvedConfig, re *regexp.Regexp) (*migrate.Migrator, *sql.DB, error) {
 	if cfg.Source == "" {
 		return nil, nil, fmt.Errorf("--source is required")
 	}
@@ -137,10 +143,11 @@ func openMigrator(cfg resolvedConfig) (*migrate.Migrator, *sql.DB, error) {
 	}
 
 	m, err := migrate.New(migrate.Config{
-		Source:       cfg.Source,
-		DriverName:   cfg.Driver,
-		DB:           db,
-		HistoryTable: cfg.HistoryTable,
+		Source:        cfg.Source,
+		DriverName:    cfg.Driver,
+		DB:            db,
+		HistoryTable:  cfg.HistoryTable,
+		FilenameRegex: re,
 	})
 	if err != nil {
 		_ = db.Close()
@@ -380,6 +387,91 @@ func cmdDown(args []string, stdout, stderr io.Writer, in terminalDetector) int {
 	for _, r := range rolled {
 		fmt.Fprintf(stdout, "  ✓ %s (was batch %d)\n", r.Name, r.Batch)
 	}
+	return 0
+}
+
+// cmdBackfill implements `gomigrate backfill`. Records pending migrations in
+// the history table without executing their SQL. Writes human output to stdout,
+// errors to stderr. Returns the process exit code.
+func cmdBackfill(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("backfill", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	batch := fs.Int("batch", 0, "assign this batch number to all files (default: auto-incrementing)")
+	regexPat := fs.String("filename-regex", "", "override default filename regex (must have 2 capture groups: name, up|down)")
+	dryRun := fs.Bool("dry-run", false, "preview without writing")
+	source := fs.String("source", "", "source URL")
+	database := fs.String("database", "", "DSN")
+	historyTable := fs.String("history-table", "", "history table name")
+	configPath := fs.String("config", "", "config file path")
+
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
+	shared := []string{}
+	if *source != "" {
+		shared = append(shared, "--source", *source)
+	}
+	if *database != "" {
+		shared = append(shared, "--database", *database)
+	}
+	if *historyTable != "" {
+		shared = append(shared, "--history-table", *historyTable)
+	}
+	if *configPath != "" {
+		shared = append(shared, "--config", *configPath)
+	}
+
+	cfg, err := resolveConfig(shared)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+
+	opts := migrate.BackfillOptions{Batch: *batch, DryRun: *dryRun}
+	if *regexPat != "" {
+		re, err := regexp.Compile(*regexPat)
+		if err != nil {
+			fmt.Fprintf(stderr, "invalid --filename-regex: %v\n", err)
+			return 1
+		}
+		opts.FilenameRegex = re
+	}
+
+	m, db, err := openMigratorWithRegex(cfg, opts.FilenameRegex)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer db.Close()
+
+	batchLabel := "auto-incrementing"
+	if opts.Batch > 0 {
+		batchLabel = fmt.Sprintf("%d", opts.Batch)
+	}
+	dryLabel := ""
+	if opts.DryRun {
+		dryLabel = " (dry-run, nothing written)"
+	}
+	fmt.Fprintf(stdout, "Backfilling history table (batch: %s)%s:\n", batchLabel, dryLabel)
+
+	recorded, err := m.Backfill(context.Background(), opts)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 2
+	}
+	if len(recorded) == 0 {
+		fmt.Fprintln(stdout, "Nothing to backfill — all files already in history.")
+		return 0
+	}
+	for _, a := range recorded {
+		fmt.Fprintf(stdout, "  \u2713 %-40s \u2192 batch %d\n", a.Name, a.Batch)
+	}
+	action := "Recorded"
+	if opts.DryRun {
+		action = "Would record"
+	}
+	fmt.Fprintf(stdout, "%s %d migration(s).\n", action, len(recorded))
 	return 0
 }
 

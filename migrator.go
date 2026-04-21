@@ -3,6 +3,7 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"regexp"
 )
 
 // Up applies every pending migration in filename order as a new batch.
@@ -103,6 +104,74 @@ func (m *Migrator) PlanDown(ctx context.Context, steps int) ([]PlannedMigration,
 			return nil, fmt.Errorf("%w: %s", ErrNoRollback, r.Name)
 		}
 		out = append(out, PlannedMigration{Name: r.Name, Path: s.UpPath, SQL: s.DownSQL, Batch: r.Batch})
+	}
+	return out, nil
+}
+
+// BackfillOptions configures Migrator.Backfill.
+type BackfillOptions struct {
+	// Batch, if > 0, assigns all backfilled migrations to this batch number.
+	// If 0, each migration gets its own incrementing batch starting at MAX+1.
+	Batch int
+
+	// FilenameRegex overrides the default YYYYMMDDHHMMSS_name.(up|down).sql pattern.
+	// Must have two capture groups: name and direction.
+	// If nil, DefaultFilenameRE is used.
+	FilenameRegex *regexp.Regexp
+
+	// DryRun, if true, returns the plan but writes nothing to the DB.
+	DryRun bool
+}
+
+// Backfill records every pending migration in the history table WITHOUT
+// executing its SQL. For users migrating from another tool who already
+// have the schema in place.
+//
+// Returns the list of migrations that would be (or were) recorded.
+// Already-applied names are skipped automatically.
+func (m *Migrator) Backfill(ctx context.Context, opts BackfillOptions) ([]AppliedMigration, error) {
+	src := m.src
+	if opts.FilenameRegex != nil && m.cfg.Source != "" {
+		var err error
+		src, err = loadSourceWithRegex(m.cfg.Source, opts.FilenameRegex)
+		if err != nil {
+			return nil, fmt.Errorf("migrate: backfill load source: %w", err)
+		}
+	}
+
+	applied, err := m.drv.AppliedNames(ctx, m.cfg.DB, m.cfg.HistoryTable)
+	if err != nil {
+		return nil, fmt.Errorf("migrate: backfill read applied: %w", err)
+	}
+	pending := computePending(src, applied)
+	if len(pending) == 0 {
+		return nil, nil
+	}
+
+	out := make([]AppliedMigration, 0, len(pending))
+	if opts.Batch > 0 {
+		for _, mig := range pending {
+			out = append(out, AppliedMigration{Name: mig.Name, Batch: opts.Batch})
+		}
+	} else {
+		start, err := m.drv.NextBatch(ctx, m.cfg.DB, m.cfg.HistoryTable)
+		if err != nil {
+			return nil, fmt.Errorf("migrate: backfill next batch: %w", err)
+		}
+		for i, mig := range pending {
+			out = append(out, AppliedMigration{Name: mig.Name, Batch: start + i})
+		}
+	}
+
+	if opts.DryRun {
+		return out, nil
+	}
+
+	for _, a := range out {
+		m.log.Infof("migrate: backfilling %s (batch %d)", a.Name, a.Batch)
+		if err := m.drv.RecordApplied(ctx, m.cfg.DB, m.cfg.HistoryTable, a.Name, a.Batch); err != nil {
+			return out, fmt.Errorf("migrate: backfill record %s: %w", a.Name, err)
+		}
 	}
 	return out, nil
 }

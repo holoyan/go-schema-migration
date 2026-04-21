@@ -104,6 +104,14 @@ func (*pgDriver) AllMigrations(ctx context.Context, db *sql.DB, table string) ([
 	return queryAppliedRows(ctx, db, q)
 }
 
+func (*pgDriver) RecordApplied(ctx context.Context, db *sql.DB, table, name string, batch int) error {
+	q := fmt.Sprintf(`INSERT INTO %s (name, batch) VALUES ($1, $2)`, quoteIdent(table))
+	if _, err := db.ExecContext(ctx, q, name, batch); err != nil {
+		return fmt.Errorf("postgres: record applied: %w", err)
+	}
+	return nil
+}
+
 func queryAppliedRows(ctx context.Context, db *sql.DB, query string, args ...any) ([]driver.AppliedRow, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {

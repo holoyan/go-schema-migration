@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/holoyan/go-schema-migration/driver"
@@ -18,6 +19,10 @@ type Config struct {
 	DB           *sql.DB
 	HistoryTable string
 	Logger       Logger
+	// FilenameRegex overrides the default filename pattern used to parse
+	// migration files. If nil, DefaultFilenameRE is used. Must have two
+	// capture groups: name and direction (up|down).
+	FilenameRegex *regexp.Regexp
 }
 
 // Migrator runs migrations against a database.
@@ -45,7 +50,11 @@ func New(cfg Config) (*Migrator, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrDriverNotRegistered, cfg.DriverName)
 	}
-	src, err := loadSource(cfg.Source)
+	re := cfg.FilenameRegex
+	if re == nil {
+		re = DefaultFilenameRE
+	}
+	src, err := loadSourceWithRegex(cfg.Source, re)
 	if err != nil {
 		return nil, err
 	}
@@ -65,12 +74,18 @@ func (m *Migrator) Close() error { return nil }
 // tests across packages in this module; not part of the public API.
 func (m *Migrator) DBForTest() *sql.DB { return m.cfg.DB }
 
-// loadSource resolves a source URL into sourceMigration list. Only
-// "file://" is supported today.
+// loadSource resolves a source URL into sourceMigration list using DefaultFilenameRE.
+// Only "file://" is supported today.
 func loadSource(url string) ([]sourceMigration, error) {
+	return loadSourceWithRegex(url, DefaultFilenameRE)
+}
+
+// loadSourceWithRegex resolves a source URL into sourceMigration list using a custom regex.
+// Only "file://" is supported today.
+func loadSourceWithRegex(url string, re *regexp.Regexp) ([]sourceMigration, error) {
 	const filePrefix = "file://"
 	if strings.HasPrefix(url, filePrefix) {
-		return loadFromDir(strings.TrimPrefix(url, filePrefix))
+		return loadFromDirWithRegex(strings.TrimPrefix(url, filePrefix), re)
 	}
 	return nil, fmt.Errorf("migrate: unsupported source scheme %q (only file:// is supported in v1)", url)
 }

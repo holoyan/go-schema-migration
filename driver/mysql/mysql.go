@@ -115,6 +115,14 @@ func (*myDriver) AllMigrations(ctx context.Context, db *sql.DB, table string) ([
 	return queryAppliedRows(ctx, db, q)
 }
 
+func (*myDriver) RecordApplied(ctx context.Context, db *sql.DB, table, name string, batch int) error {
+	q := fmt.Sprintf("INSERT INTO %s (name, batch) VALUES (?, ?)", quoteIdent(table))
+	if _, err := db.ExecContext(ctx, q, name, batch); err != nil {
+		return fmt.Errorf("mysql: record applied: %w", err)
+	}
+	return nil
+}
+
 func queryAppliedRows(ctx context.Context, db *sql.DB, query string, args ...any) ([]driver.AppliedRow, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {

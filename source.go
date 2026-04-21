@@ -16,19 +16,32 @@ const (
 	dirDown direction = "down"
 )
 
-// filenameRE matches migration filenames. 14 digits, underscore, snake
-// case name, either .up.sql or .down.sql.
-var filenameRE = regexp.MustCompile(`^(\d{14}_[a-z0-9_]+)\.(up|down)\.sql$`)
+// DefaultFilenameRE is the standard filename pattern:
+// YYYYMMDDHHMMSS_snake_name.up.sql (or .down.sql).
+var DefaultFilenameRE = regexp.MustCompile(`^(\d{14}_[a-z0-9_]+)\.(up|down)\.sql$`)
+
+// filenameRE is an alias kept for internal use; external code should use DefaultFilenameRE.
+var filenameRE = DefaultFilenameRE
 
 // parseMigrationFilename splits a filename into its (name, direction)
-// components. Returns ErrInvalidMigrationName for any filename that
-// does not match the required pattern.
+// components using DefaultFilenameRE. Returns ErrInvalidMigrationName
+// for any filename that does not match the required pattern.
 func parseMigrationFilename(filename string) (name string, dir direction, err error) {
-	m := filenameRE.FindStringSubmatch(filename)
-	if m == nil {
+	return parseMigrationFilenameWithRegex(filename, DefaultFilenameRE)
+}
+
+// parseMigrationFilenameWithRegex extracts (name, direction) using a custom regex.
+// The regex MUST have two capture groups: first = name, second = "up" or "down".
+func parseMigrationFilenameWithRegex(filename string, re *regexp.Regexp) (name string, dir direction, err error) {
+	m := re.FindStringSubmatch(filename)
+	if m == nil || len(m) < 3 {
 		return "", "", fmt.Errorf("%w: %q", ErrInvalidMigrationName, filename)
 	}
-	return m[1], direction(m[2]), nil
+	d := direction(m[2])
+	if d != dirUp && d != dirDown {
+		return "", "", fmt.Errorf("%w: %q (second capture group must be 'up' or 'down')", ErrInvalidMigrationName, filename)
+	}
+	return m[1], d, nil
 }
 
 // sourceMigration is a loaded migration with both direction SQL bodies.
@@ -41,10 +54,16 @@ type sourceMigration struct {
 }
 
 // loadFromFS reads every top-level file from fsys, parses migration
-// filenames, pairs up/down bodies, and returns the sorted list.
-// Returns ErrInvalidMigrationName on any non-conforming filename, and
-// ErrOrphanDownFile on a .down.sql without a matching .up.sql.
+// filenames using DefaultFilenameRE, pairs up/down bodies, and returns
+// the sorted list. Returns ErrInvalidMigrationName on any non-conforming
+// filename, and ErrOrphanDownFile on a .down.sql without a matching .up.sql.
 func loadFromFS(fsys fs.FS) ([]sourceMigration, error) {
+	return loadFromFSWithRegex(fsys, DefaultFilenameRE)
+}
+
+// loadFromFSWithRegex reads fsys using a custom filename regex.
+// The regex must have two capture groups: first = migration name, second = "up" or "down".
+func loadFromFSWithRegex(fsys fs.FS, re *regexp.Regexp) ([]sourceMigration, error) {
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
 		return nil, fmt.Errorf("source: read dir: %w", err)
@@ -59,7 +78,7 @@ func loadFromFS(fsys fs.FS) ([]sourceMigration, error) {
 		if e.IsDir() {
 			continue
 		}
-		name, dir, perr := parseMigrationFilename(e.Name())
+		name, dir, perr := parseMigrationFilenameWithRegex(e.Name(), re)
 		if perr != nil {
 			return nil, perr
 		}
@@ -97,11 +116,16 @@ func loadFromFS(fsys fs.FS) ([]sourceMigration, error) {
 // URL is "file://...". Callers pass the resolved absolute path. Rewrites
 // UpPath to an absolute path for better error messages.
 func loadFromDir(dir string) ([]sourceMigration, error) {
+	return loadFromDirWithRegex(dir, DefaultFilenameRE)
+}
+
+// loadFromDirWithRegex is like loadFromDir but uses a custom filename regex.
+func loadFromDirWithRegex(dir string, re *regexp.Regexp) ([]sourceMigration, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
 	}
-	got, err := loadFromFS(os.DirFS(abs))
+	got, err := loadFromFSWithRegex(os.DirFS(abs), re)
 	if err != nil {
 		return nil, err
 	}

@@ -21,11 +21,12 @@ Usage:
   gomigrate <command> [flags]
 
 Commands:
-  up       Apply all pending migrations
-  down     Roll back the last batch (or N batches with --step)
-  status   Show applied/pending state of every migration
-  create   Scaffold a new migration pair
-  version  Print version info
+  up        Apply all pending migrations
+  down      Roll back the last batch (or N batches with --step)
+  status    Show applied/pending state of every migration
+  backfill  Record existing migrations in history without executing SQL
+  create    Scaffold a new migration pair
+  version   Print version info
 
 Run 'gomigrate <command> --help' for command-specific flags.
 `
@@ -46,6 +47,8 @@ func main() {
 		code = runDown(args)
 	case "status":
 		code = runStatus(args)
+	case "backfill":
+		code = runBackfill(args)
 	case "create":
 		code = runCreate(args)
 	case "version":
@@ -61,11 +64,12 @@ func main() {
 }
 
 // Stub implementations; each gets filled in a later task.
-func runUp(args []string) int      { return cmdUp(args, os.Stdout, os.Stderr) }
-func runDown(args []string) int    { return cmdDown(args, os.Stdout, os.Stderr, realStdin{}) }
-func runStatus(args []string) int  { return cmdStatus(args, os.Stdout, os.Stderr) }
-func runCreate(args []string) int  { return runCreateImpl(args) }
-func runVersion(args []string) int { return cmdVersion(os.Stdout) }
+func runUp(args []string) int       { return cmdUp(args, os.Stdout, os.Stderr) }
+func runDown(args []string) int     { return cmdDown(args, os.Stdout, os.Stderr, realStdin{}) }
+func runStatus(args []string) int   { return cmdStatus(args, os.Stdout, os.Stderr) }
+func runBackfill(args []string) int { return cmdBackfill(args, os.Stdout, os.Stderr) }
+func runCreate(args []string) int   { return runCreateImpl(args) }
+func runVersion(args []string) int  { return cmdVersion(os.Stdout) }
 
 func runCreateImpl(args []string) int {
 	// Source directory defaults to ./migrations; --source overrides.

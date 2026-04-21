@@ -32,6 +32,9 @@ func (s *stubDriver) LastBatchMigrations(ctx context.Context, db *sql.DB, table 
 func (s *stubDriver) AllMigrations(ctx context.Context, db *sql.DB, table string) ([]AppliedRow, error) {
 	return nil, nil
 }
+func (s *stubDriver) RecordApplied(ctx context.Context, db *sql.DB, table, name string, batch int) error {
+	return nil
+}
 
 func TestRegisterAndGet(t *testing.T) {
 	t.Cleanup(resetRegistry)

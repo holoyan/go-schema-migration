@@ -133,6 +133,18 @@ func (f *FakeDriver) AllMigrations(ctx context.Context, db *sql.DB, table string
 	return out, nil
 }
 
+func (f *FakeDriver) RecordApplied(ctx context.Context, db *sql.DB, table, name string, batch int) error {
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	f.nextID++
+	f.History = append(f.History, driver.AppliedRow{
+		Name:      name,
+		Batch:     batch,
+		AppliedAt: time.Now(),
+	})
+	return nil
+}
+
 var errFakeApply = fakeApplyErr{}
 
 type fakeApplyErr struct{}

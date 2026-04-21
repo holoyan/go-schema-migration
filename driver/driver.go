@@ -54,6 +54,10 @@ type DBDriver interface {
 
 	// AllMigrations returns every row in history, ordered by id ASC.
 	AllMigrations(ctx context.Context, db *sql.DB, table string) ([]AppliedRow, error)
+
+	// RecordApplied inserts a history row without executing any migration SQL.
+	// Used by backfill to register pre-existing migrations.
+	RecordApplied(ctx context.Context, db *sql.DB, table, name string, batch int) error
 }
 
 var (

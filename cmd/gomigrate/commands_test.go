@@ -220,3 +220,99 @@ func TestCmdCreate_InvalidName(t *testing.T) {
 		t.Fatalf("error should mention invalid: %q", errB.String())
 	}
 }
+
+func TestCmdBackfill_Applies(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	writeMigrations(t, mig, map[string]string{
+		"20260101000000_a.up.sql":   "CREATE TABLE a(id INTEGER);",
+		"20260101000000_a.down.sql": "DROP TABLE a;",
+		"20260102000000_b.up.sql":   "CREATE TABLE b(id INTEGER);",
+		"20260102000000_b.down.sql": "DROP TABLE b;",
+	})
+
+	var out, errBuf bytes.Buffer
+	code := cmdBackfill([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("backfill exited %d: %s", code, errBuf.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("20260101000000_a")) {
+		t.Fatalf("output missing first migration: %q", out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("20260102000000_b")) {
+		t.Fatalf("output missing second migration: %q", out.String())
+	}
+	// batch 1 for first migration, batch 2 for second
+	if !bytes.Contains(out.Bytes(), []byte("batch 1")) {
+		t.Fatalf("output missing batch 1: %q", out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("batch 2")) {
+		t.Fatalf("output missing batch 2: %q", out.String())
+	}
+	// Running again should report nothing to backfill.
+	var out2, err2 bytes.Buffer
+	code2 := cmdBackfill([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &out2, &err2)
+	if code2 != 0 {
+		t.Fatalf("second backfill exited %d: %s", code2, err2.String())
+	}
+	if !bytes.Contains(out2.Bytes(), []byte("Nothing to backfill")) {
+		t.Fatalf("expected 'Nothing to backfill' on second run, got: %q", out2.String())
+	}
+}
+
+func TestCmdBackfill_DryRun(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	writeMigrations(t, mig, map[string]string{
+		"20260101000000_a.up.sql":   "CREATE TABLE a(id INTEGER);",
+		"20260101000000_a.down.sql": "DROP TABLE a;",
+	})
+
+	var out, errBuf bytes.Buffer
+	code := cmdBackfill([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath, "--dry-run"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("backfill --dry-run exited %d: %s", code, errBuf.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("dry-run")) {
+		t.Fatalf("output missing dry-run label: %q", out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("Would record")) {
+		t.Fatalf("output missing 'Would record': %q", out.String())
+	}
+
+	// A real backfill after dry-run should still have work to do.
+	var out2, err2 bytes.Buffer
+	code2 := cmdBackfill([]string{"--source", "file://" + mig, "--database", "sqlite://" + dbPath}, &out2, &err2)
+	if code2 != 0 {
+		t.Fatalf("real backfill after dry-run exited %d: %s", code2, err2.String())
+	}
+	if !bytes.Contains(out2.Bytes(), []byte("20260101000000_a")) {
+		t.Fatalf("real backfill should still report the migration: %q", out2.String())
+	}
+}
+
+func TestCmdBackfill_CustomRegex(t *testing.T) {
+	dir := t.TempDir()
+	mig := filepath.Join(dir, "migs")
+	dbPath := filepath.Join(dir, "db.sqlite")
+	// golang-migrate-style filenames
+	writeMigrations(t, mig, map[string]string{
+		"000001_create_users.up.sql":   "CREATE TABLE users(id INTEGER);",
+		"000001_create_users.down.sql": "DROP TABLE users;",
+	})
+
+	var out, errBuf bytes.Buffer
+	code := cmdBackfill([]string{
+		"--source", "file://" + mig,
+		"--database", "sqlite://" + dbPath,
+		"--filename-regex", `^(\d+_[a-zA-Z0-9_]+)\.(up|down)\.sql$`,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("backfill --filename-regex exited %d: %s", code, errBuf.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("000001_create_users")) {
+		t.Fatalf("output missing migration name: %q", out.String())
+	}
+}
