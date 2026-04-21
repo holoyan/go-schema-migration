@@ -1,6 +1,6 @@
 # Binaries
-/migrate
-/cmd/migrate/migrate
+/gomigrate
+/cmd/gomigrate/gomigrate
 
 # Test artifacts
 *.test

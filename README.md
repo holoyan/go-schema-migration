@@ -9,7 +9,7 @@ A Go migration library and CLI with **full history tracking**, so concurrent-dev
 go get github.com/holoyan/go-schema-migration
 
 # CLI
-go install github.com/holoyan/go-schema-migration/cmd/migrate@latest
+go install github.com/holoyan/go-schema-migration/cmd/gomigrate@latest
 ```
 
 Go 1.23+ required (1.25+ recommended since the SQLite driver pulls `modernc.org/sqlite` which declares a 1.25 toolchain).
@@ -29,28 +29,28 @@ The 14-digit timestamp (`YYYYMMDDHHMMSS`) gives second-level resolution — enou
 
 ```bash
 # Apply all pending migrations (creates a new batch)
-migrate up --source file://./migrations --database postgres://user:pw@host/db
+gomigrate up --source file://./migrations --database postgres://user:pw@host/db
 
 # Preview what would run, without executing anything
-migrate up --dry-run --verbose
+gomigrate up --dry-run --verbose
 
 # Roll back the last batch (prompts [y/N] on a TTY)
-migrate down
+gomigrate down
 
 # Roll back the last 3 batches, skip the prompt (for CI)
-migrate down --step 3 --force
+gomigrate down --step 3 --force
 
 # Show every migration + applied/pending + batch
-migrate status
-migrate status --pending
-migrate status --json
+gomigrate status
+gomigrate status --pending
+gomigrate status --json
 
 # Scaffold a new migration pair with the current UTC timestamp
-migrate create add_users
+gomigrate create add_users
 # → 20260416152310_add_users.up.sql + .down.sql
 
-migrate version
-migrate --help
+gomigrate version
+gomigrate --help
 ```
 
 ### Configuration
@@ -73,7 +73,7 @@ history_table: schema_migrations
 verbose: false
 ```
 
-Run with `migrate up --config ./migrate.yaml`.
+Run with `gomigrate up --config ./migrate.yaml`.
 
 ### Exit codes
 
@@ -86,7 +86,7 @@ Run with `migrate up --config ./migrate.yaml`.
 
 ### Non-TTY safety
 
-`migrate down` without `--force` refuses to run when stdin is not a terminal — prevents accidents in scripts or CI where no one can answer the `[y/N]` prompt.
+`gomigrate down` without `--force` refuses to run when stdin is not a terminal — prevents accidents in scripts or CI where no one can answer the `[y/N]` prompt.
 
 ## Library usage
 

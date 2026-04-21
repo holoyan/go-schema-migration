@@ -10,11 +10,11 @@ import (
 	"testing"
 )
 
-// buildBinary compiles cmd/migrate once per test invocation.
+// buildBinary compiles cmd/gomigrate once per test invocation.
 func buildBinary(t *testing.T) string {
 	t.Helper()
 	outDir := t.TempDir()
-	bin := filepath.Join(outDir, "migrate")
+	bin := filepath.Join(outDir, "gomigrate")
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
@@ -74,7 +74,7 @@ func TestE2E_CLIVersion(t *testing.T) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("version failed: %v", err)
 	}
-	if !strings.Contains(out.String(), "migrate ") {
+	if !strings.Contains(out.String(), "gomigrate ") {
 		t.Fatalf("unexpected version output: %q", out.String())
 	}
 }

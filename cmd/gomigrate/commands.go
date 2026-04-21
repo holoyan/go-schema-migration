@@ -387,7 +387,7 @@ func cmdDown(args []string, stdout, stderr io.Writer, in terminalDetector) int {
 var Version = "dev"
 
 func cmdVersion(stdout io.Writer) int {
-	fmt.Fprintf(stdout, "migrate %s\n", Version)
+	fmt.Fprintf(stdout, "gomigrate %s\n", Version)
 	return 0
 }
 

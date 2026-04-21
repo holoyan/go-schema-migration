@@ -1,4 +1,4 @@
-// Command migrate is the CLI wrapper over github.com/holoyan/go-schema-migration.
+// Command gomigrate is the CLI wrapper over github.com/holoyan/go-schema-migration.
 package main
 
 import (
@@ -15,10 +15,10 @@ import (
 	_ "modernc.org/sqlite"              // registers "sqlite" sql driver
 )
 
-const usage = `migrate — schema migration tool with full history tracking
+const usage = `gomigrate — schema migration tool with full history tracking
 
 Usage:
-  migrate <command> [flags]
+  gomigrate <command> [flags]
 
 Commands:
   up       Apply all pending migrations
@@ -27,7 +27,7 @@ Commands:
   create   Scaffold a new migration pair
   version  Print version info
 
-Run 'migrate <command> --help' for command-specific flags.
+Run 'gomigrate <command> --help' for command-specific flags.
 `
 
 func main() {
